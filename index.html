@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>X3 Alpha — AI Trading Journal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=Orbitron:wght@400;500;700;900&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --black:#030507; --deep:#080d12; --surface:#0d1520; --card:#111c2a;
+      --border:rgba(100,160,255,0.12); --blue:#3b82f6; --blue-bright:#60a5fa;
+      --blue-glow:rgba(59,130,246,0.25); --silver:#a8b8cc; --silver-light:#d0dae6;
+      --white:#f0f6ff; --text-muted:#5a7a9a; --green:#34d399; --red:#f87171;
+    }
+    html { scroll-behavior:smooth; scrollbar-gutter:stable; }
+    body.modal-open { overflow:hidden; }
+    body {
+      background:var(--black); color:var(--white); font-family:'Inter',sans-serif;
+      min-height:100vh; overflow-x:hidden;
+    }
+    body::before {
+      content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
+      background:
+        radial-gradient(ellipse 70% 50% at 50% -10%, rgba(59,130,246,0.10), transparent 70%),
+        linear-gradient(rgba(59,130,246,0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(59,130,246,0.035) 1px, transparent 1px);
+      background-size:auto, 60px 60px, 60px 60px;
+      mask-image:radial-gradient(ellipse 90% 70% at 50% 20%, black 30%, transparent 90%);
+    }
+
+    /* NAV */
+    nav {
+      position:sticky; top:0; z-index:50; display:flex; align-items:center;
+      justify-content:space-between; padding:18px 32px;
+      background:linear-gradient(to bottom, rgba(3,5,7,0.95), rgba(3,5,7,0.6));
+      backdrop-filter:blur(12px); border-bottom:1px solid var(--border);
+    }
+    .brand { display:flex; align-items:center; gap:12px; text-decoration:none; }
+    .brand-logo {
+      font-family:'Orbitron',monospace; font-size:1.1rem; font-weight:700;
+      letter-spacing:0.14em; color:var(--white);
+    }
+    .brand-logo span { color:var(--blue-bright); }
+    .nav-right { display:flex; align-items:center; gap:18px; }
+    .nav-link {
+      font-family:'Rajdhani',sans-serif; font-size:0.8rem; font-weight:500;
+      letter-spacing:0.12em; text-transform:uppercase; color:var(--silver);
+      text-decoration:none; transition:color 0.2s;
+    }
+    .nav-link:hover { color:var(--white); }
+    .plan-pill {
+      font-family:'Rajdhani',monospace; font-size:0.65rem; letter-spacing:0.16em;
+      text-transform:uppercase; padding:5px 12px; border-radius:100px;
+      border:1px solid var(--border); color:var(--text-muted);
+    }
+    .plan-pill.pro { color:var(--blue-bright); border-color:rgba(96,165,250,0.4); background:rgba(59,130,246,0.1); }
+
+    /* LAYOUT */
+    main { position:relative; z-index:1; max-width:1080px; margin:0 auto; padding:56px 32px 80px; }
+    .eyebrow {
+      font-family:'Rajdhani',monospace; font-size:0.72rem; letter-spacing:0.3em;
+      text-transform:uppercase; color:var(--blue-bright); margin-bottom:14px;
+    }
+    h1 {
+      font-family:'Orbitron',monospace; font-size:clamp(2rem,5vw,3.2rem); font-weight:900;
+      line-height:1.05; letter-spacing:-0.02em;
+    }
+    h1 span { background:linear-gradient(135deg,var(--blue-bright),#93c5fd,var(--silver-light));
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .lede { margin-top:18px; max-width:600px; color:var(--silver); font-family:'Rajdhani',sans-serif;
+      font-size:1.05rem; line-height:1.7; }
+
+    .panel {
+      background:var(--card); border:1px solid var(--border); border-radius:16px;
+      padding:28px; margin-top:36px; position:relative; overflow:hidden;
+    }
+    .panel-title {
+      font-family:'Orbitron',monospace; font-size:0.95rem; font-weight:600;
+      letter-spacing:0.04em; margin-bottom:6px;
+    }
+    .panel-sub { font-size:0.85rem; color:var(--text-muted); margin-bottom:22px; }
+
+    /* TRADE ROWS */
+    .trade-row {
+      display:grid; grid-template-columns:1.2fr 0.9fr 1fr 1fr 0.8fr 1.1fr auto;
+      gap:10px; align-items:center; margin-bottom:10px;
+    }
+    .trade-head { font-family:'Rajdhani',monospace; font-size:0.65rem; letter-spacing:0.14em;
+      text-transform:uppercase; color:var(--text-muted); }
+    input, select, textarea {
+      width:100%; background:var(--deep); border:1px solid var(--border); border-radius:8px;
+      color:var(--white); font-family:'Inter',sans-serif; font-size:0.85rem;
+      padding:10px 12px; transition:border-color 0.2s, box-shadow 0.2s;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline:none; border-color:rgba(96,165,250,0.5); box-shadow:0 0 0 3px rgba(59,130,246,0.12);
+    }
+    input::placeholder, textarea::placeholder { color:#3f5a78; }
+    select option { background:var(--surface); }
+    .pl-cell { font-family:'Rajdhani',monospace; font-size:0.8rem; font-weight:600; text-align:right;
+      padding-right:4px; min-width:64px; }
+    .pl-pos { color:var(--green); } .pl-neg { color:var(--red); } .pl-zero { color:var(--text-muted); }
+    .row-remove {
+      background:transparent; border:1px solid var(--border); color:var(--text-muted);
+      border-radius:8px; width:34px; height:36px; cursor:pointer; font-size:1rem;
+      display:flex; align-items:center; justify-content:center; transition:all 0.2s;
+    }
+    .row-remove:hover { color:var(--red); border-color:rgba(248,113,113,0.4); }
+
+    .btn-row {
+      margin-top:6px; background:transparent; border:1px dashed var(--border);
+      color:var(--silver); font-family:'Rajdhani',sans-serif; font-weight:600;
+      letter-spacing:0.08em; text-transform:uppercase; font-size:0.78rem;
+      padding:11px 18px; border-radius:8px; cursor:pointer; transition:all 0.2s;
+    }
+    .btn-row:hover { border-color:rgba(96,165,250,0.4); color:var(--white); }
+
+    label.field-label { display:block; font-family:'Rajdhani',monospace; font-size:0.65rem;
+      letter-spacing:0.14em; text-transform:uppercase; color:var(--text-muted); margin:18px 0 8px; }
+    textarea { resize:vertical; min-height:72px; line-height:1.6; }
+
+    .analyze-bar { display:flex; flex-wrap:wrap; gap:14px; align-items:center; margin-top:24px; }
+    .btn-primary {
+      display:inline-flex; align-items:center; gap:10px; padding:14px 32px; background:var(--blue);
+      color:var(--white); font-family:'Rajdhani',monospace; font-size:0.92rem; font-weight:600;
+      letter-spacing:0.12em; text-transform:uppercase; border:1px solid rgba(96,165,250,0.4);
+      border-radius:8px; cursor:pointer; transition:all 0.3s; box-shadow:0 0 24px rgba(59,130,246,0.3);
+    }
+    .btn-primary:hover { box-shadow:0 0 40px rgba(59,130,246,0.5); transform:translateY(-2px); }
+    .btn-primary:disabled { opacity:0.5; cursor:not-allowed; transform:none; box-shadow:none; }
+    .btn-ghost {
+      display:inline-flex; align-items:center; gap:8px; padding:13px 26px; background:transparent;
+      color:var(--silver-light); font-family:'Rajdhani',monospace; font-size:0.85rem; font-weight:600;
+      letter-spacing:0.12em; text-transform:uppercase; border:1px solid var(--border);
+      border-radius:8px; cursor:pointer; transition:all 0.2s;
+    }
+    .btn-ghost:hover { border-color:rgba(96,165,250,0.4); color:var(--white); background:rgba(59,130,246,0.05); }
+    .usage-note { font-family:'Rajdhani',sans-serif; font-size:0.8rem; color:var(--text-muted); letter-spacing:0.04em; }
+
+    /* STATS */
+    .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; margin-top:8px; }
+    .stat {
+      background:var(--deep); border:1px solid var(--border); border-radius:10px; padding:16px;
+    }
+    .stat-val { font-family:'Orbitron',monospace; font-size:1.35rem; font-weight:700; }
+    .stat-label { font-family:'Rajdhani',monospace; font-size:0.62rem; letter-spacing:0.14em;
+      text-transform:uppercase; color:var(--text-muted); margin-top:4px; }
+
+    /* RESULT */
+    .result { display:none; }
+    .result.show { display:block; }
+    .result h2 { font-family:'Orbitron',monospace; font-size:1.1rem; font-weight:600; letter-spacing:0.02em;
+      margin:22px 0 10px; color:var(--blue-bright); }
+    .result h2:first-child { margin-top:0; }
+    .result p { color:var(--silver-light); line-height:1.75; margin:8px 0; font-size:0.92rem; }
+    .result ul { margin:8px 0 8px 4px; list-style:none; }
+    .result li { position:relative; padding-left:20px; margin:7px 0; color:var(--silver-light);
+      line-height:1.7; font-size:0.92rem; }
+    .result li::before { content:''; position:absolute; left:2px; top:11px; width:6px; height:6px;
+      border-radius:50%; background:var(--blue-bright); }
+    .result em { color:var(--text-muted); font-style:italic; font-size:0.82rem; }
+    .result strong { color:var(--white); }
+
+    .spinner { width:18px; height:18px; border:2px solid rgba(255,255,255,0.3);
+      border-top-color:#fff; border-radius:50%; animation:spin 0.7s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    .error-box { display:none; margin-top:18px; padding:16px 18px; border-radius:10px;
+      border:1px solid rgba(248,113,113,0.35); background:rgba(248,113,113,0.08);
+      color:#fca5a5; font-size:0.88rem; line-height:1.6; }
+    .error-box.show { display:block; }
+
+    /* PAYWALL MODAL */
+    .modal-overlay {
+      position:fixed; inset:0; z-index:100; background:rgba(3,5,7,0.8); backdrop-filter:blur(6px);
+      display:none; align-items:center; justify-content:center; padding:24px;
+    }
+    .modal-overlay.active { display:flex; }
+    .modal {
+      position:relative; max-width:460px; width:100%; background:var(--card);
+      border:1px solid var(--border); border-radius:18px; padding:40px 34px; text-align:center;
+      box-shadow:0 30px 80px rgba(0,0,0,0.6), 0 0 50px rgba(59,130,246,0.12);
+    }
+    .modal-close { position:absolute; top:16px; right:16px; background:transparent; border:none;
+      color:var(--text-muted); cursor:pointer; }
+    .modal-eyebrow { font-family:'Rajdhani',monospace; font-size:0.7rem; letter-spacing:0.28em;
+      text-transform:uppercase; color:var(--blue-bright); margin-bottom:12px; }
+    .modal h3 { font-family:'Orbitron',monospace; font-size:1.5rem; font-weight:700; margin-bottom:10px; }
+    .modal .price { font-family:'Orbitron',monospace; font-size:2.4rem; font-weight:900; margin:18px 0 4px; }
+    .modal .price small { font-size:0.9rem; color:var(--text-muted); font-weight:400; }
+    .modal-feats { text-align:left; margin:22px auto; max-width:300px; }
+    .modal-feats li { list-style:none; padding:9px 0 9px 28px; position:relative; color:var(--silver-light);
+      font-size:0.9rem; }
+    .modal-feats li::before { content:'✓'; position:absolute; left:0; top:8px; color:var(--blue-bright);
+      font-weight:700; }
+    .modal .btn-primary { width:100%; justify-content:center; margin-top:6px; }
+    .modal-fine { margin-top:14px; font-size:0.74rem; color:var(--text-muted); line-height:1.5; }
+
+    /* ACCOUNT */
+    #accountArea { display:flex; align-items:center; gap:14px; }
+    .acct-email { font-family:'Rajdhani',sans-serif; font-size:0.8rem; color:var(--silver-light);
+      letter-spacing:0.03em; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .btn-signin { background:rgba(59,130,246,0.12); border:1px solid rgba(96,165,250,0.4);
+      color:var(--blue-bright); font-family:'Rajdhani',monospace; font-size:0.78rem; font-weight:600;
+      letter-spacing:0.1em; text-transform:uppercase; padding:8px 16px; border-radius:8px; cursor:pointer;
+      transition:all 0.2s; }
+    .btn-signin:hover { background:rgba(59,130,246,0.2); }
+    .linkbtn { background:none; border:none; color:var(--silver); font-family:'Rajdhani',sans-serif;
+      font-size:0.8rem; letter-spacing:0.08em; cursor:pointer; padding:0; text-transform:uppercase; }
+    .linkbtn:hover { color:var(--white); }
+    .modal input { margin:8px 0; }
+    .modal-status { margin-top:14px; font-size:0.82rem; min-height:18px; }
+    .modal-status.ok { color:var(--green); } .modal-status.err { color:var(--red); }
+
+    /* FAQ */
+    .faq-item { border:1px solid var(--border); border-radius:10px; background:var(--deep);
+      margin-bottom:10px; overflow:hidden; }
+    .faq-item summary {
+      list-style:none; cursor:pointer; padding:16px 18px; display:flex; align-items:center;
+      justify-content:space-between; gap:14px; font-family:'Rajdhani',sans-serif; font-weight:600;
+      font-size:0.98rem; letter-spacing:0.02em; color:var(--white); transition:color 0.2s;
+    }
+    .faq-item summary::-webkit-details-marker { display:none; }
+    .faq-item summary:hover { color:var(--blue-bright); }
+    .faq-item summary .chev { transition:transform 0.25s; color:var(--blue-bright); flex-shrink:0; }
+    .faq-item[open] summary .chev { transform:rotate(180deg); }
+    .faq-item .faq-body { padding:0 18px 18px; color:var(--silver); font-size:0.9rem; line-height:1.75; }
+    .faq-item .faq-body strong { color:var(--silver-light); }
+
+    footer {
+      position:relative; z-index:1; max-width:1080px; margin:0 auto; padding:28px 32px 48px;
+      border-top:1px solid var(--border);
+    }
+    .disclaimer { font-size:0.72rem; color:var(--text-muted); line-height:1.6; }
+    .footer-row { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:16px; }
+    .footer-row a { color:var(--silver); text-decoration:none; font-family:'Rajdhani',sans-serif;
+      font-size:0.82rem; letter-spacing:0.06em; }
+    .footer-row a:hover { color:var(--blue-bright); }
+
+    @media (max-width:760px) {
+      nav { padding:14px 18px; }
+      main { padding:36px 18px 60px; }
+      .panel { padding:20px; }
+      .trade-row { grid-template-columns:1fr 1fr; gap:8px; padding:14px; border:1px solid var(--border);
+        border-radius:10px; background:var(--deep); }
+      .trade-head { display:none; }
+      .trade-row input, .trade-row select { font-size:0.9rem; }
+      .pl-cell { grid-column:1 / -1; text-align:left; }
+      .row-remove { grid-column:1 / -1; width:100%; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a class="brand" href="https://x3digitalcapital.com">
+      <span class="brand-logo">X3 <span>ALPHA</span></span>
+    </a>
+    <div class="nav-right">
+      <a class="nav-link" href="#faq">FAQ</a>
+      <a class="nav-link" href="https://x3digitalcapital.com">← Main Site</a>
+      <span id="accountArea"></span>
+    </div>
+  </nav>
+
+  <main>
+    <p class="eyebrow">AI Trading Journal</p>
+    <h1>Your trades, <span>analyzed.</span></h1>
+    <p class="lede">Log your trades and let AI surface your real strengths, recurring mistakes, and the patterns quietly costing you money. Honest feedback, every session.</p>
+
+    <!-- TRADE ENTRY -->
+    <section class="panel">
+      <div class="panel-title">Your Trades</div>
+      <div class="panel-sub">Add each trade below. P/L is calculated automatically.</div>
+
+      <div class="trade-row trade-head">
+        <div>Symbol</div><div>Side</div><div>Entry</div><div>Exit</div><div>Qty</div><div>Date</div><div></div>
+      </div>
+      <div id="tradeList"></div>
+      <button class="btn-row" id="addTrade">+ Add Trade</button>
+
+      <label class="field-label" for="contextBox">Context for the AI (optional)</label>
+      <textarea id="contextBox" placeholder="e.g. I trade ES futures intraday. I struggle with holding losers too long and overtrading on red days."></textarea>
+
+      <div class="analyze-bar">
+        <button class="btn-primary" id="analyzeBtn">
+          <span id="analyzeLabel">Analyze with AI</span>
+        </button>
+        <span class="usage-note" id="usageNote"></span>
+      </div>
+      <div class="error-box" id="errorBox"></div>
+    </section>
+
+    <!-- STATS + RESULT -->
+    <section class="panel result" id="resultPanel">
+      <div class="panel-title">Performance Snapshot</div>
+      <div class="panel-sub">Calculated from the trades you entered.</div>
+      <div class="stats" id="statsGrid"></div>
+
+      <div style="margin-top:28px;" class="panel-title">AI Analysis</div>
+      <div class="result show" id="analysisOut" style="margin-top:14px;"></div>
+
+      <div class="analyze-bar">
+        <button class="btn-ghost" id="pdfBtn">⬇ Download PDF</button>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="panel" id="faq">
+      <div class="panel-title">Frequently Asked Questions</div>
+      <div class="panel-sub">Everything you need to know about X3 Alpha.</div>
+
+      <details class="faq-item" open>
+        <summary>What is X3 Alpha?
+          <svg class="chev" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="faq-body">X3 Alpha is an AI-powered trading journal. You log the trades you've taken, and it reviews them like a performance coach — calculating your stats and pointing out your strengths, recurring mistakes, and behavioral patterns so you can improve.</div>
+      </details>
+
+      <details class="faq-item">
+        <summary>How does it work?
+          <svg class="chev" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="faq-body">Add each trade (symbol, side, entry, exit, quantity, date). X3 Alpha instantly calculates your net P/L, win rate, profit factor, and average win/loss. Click <strong>Analyze with AI</strong> and Claude reviews your trades and returns a written breakdown with an action plan for your next sessions.</div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What do I get with Pro?
+          <svg class="chev" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="faq-body">The free plan includes a limited number of AI analyses per day. <strong>Pro ($29/mo)</strong> unlocks unlimited AI analysis, downloadable PDF reports, and priority access to new features. You can cancel anytime.</div>
+      </details>
+
+      <details class="faq-item">
+        <summary>How do I sign in, and does Pro work on other devices?
+          <svg class="chev" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="faq-body">Sign-in is passwordless: enter your email and we send a one-tap link. Your Pro membership is tied to your <strong>email</strong>, not your device — so once you're Pro, just sign in on any phone or computer and it's there. <strong>Important:</strong> pay with the same email you sign in with, so your purchase links to your account automatically.</div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Is this financial advice?
+          <svg class="chev" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="faq-body">No. X3 Alpha reviews trades you've already made and is for informational and educational use only. It never tells you what to buy or sell and makes no predictions. Trading carries substantial risk, and all decisions are your own.</div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What happens to my data?
+          <svg class="chev" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="faq-body">Your trades are sent to the AI only to generate your analysis. They aren't displayed publicly. If you'd like a formal privacy policy for your customers, that can be added before launch.</div>
+      </details>
+
+      <details class="faq-item">
+        <summary>How do I cancel Pro?
+          <svg class="chev" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="faq-body">Pro is billed monthly through Stripe and can be cancelled at any time from the billing portal link in your Stripe receipt email. You keep access until the end of the current billing period.</div>
+      </details>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-row">
+      <a href="https://x3digitalcapital.com">x3digitalcapital.com</a>
+      <a href="mailto:SUPPORT_EMAIL" id="supportLink">Support</a>
+    </div>
+    <p class="disclaimer">X3 Alpha is a trading-journal and self-review tool operated by X3 Digital Capital LLC. It analyzes trades you choose to enter and is provided for informational and educational purposes only. It is not financial, investment, legal, or tax advice, and nothing it outputs is a recommendation to buy or sell any asset. Trading involves substantial risk of loss. You are solely responsible for your decisions.</p>
+  </footer>
+
+  <!-- SIGN IN -->
+  <div class="modal-overlay" id="signinModal">
+    <div class="modal">
+      <button class="modal-close" onclick="closeSignin()">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+      <p class="modal-eyebrow">Sign in</p>
+      <h3>Sign in to X3 Alpha</h3>
+      <p class="modal-fine" id="signinIntro">Enter your email and we'll send you a secure one-tap sign-in link. No password needed.</p>
+      <input id="signinEmail" type="email" placeholder="you@email.com" autocomplete="email" />
+      <button class="btn-primary" id="sendLinkBtn" style="width:100%; justify-content:center;">Send sign-in link</button>
+      <p class="modal-status" id="signinStatus"></p>
+    </div>
+  </div>
+
+  <!-- PAYWALL -->
+  <div class="modal-overlay" id="paywall">
+    <div class="modal">
+      <button class="modal-close" onclick="closePaywall()">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+      <p class="modal-eyebrow">Upgrade to Pro</p>
+      <h3>Unlock X3 Alpha Pro</h3>
+      <div class="price">$29<small>/mo</small></div>
+      <ul class="modal-feats">
+        <li>Unlimited AI trade analysis</li>
+        <li>Download polished PDF reports</li>
+        <li>Priority access to new features</li>
+      </ul>
+      <a class="btn-primary" id="upgradeBtn" href="STRIPE_PRO_LINK">Upgrade Now</a>
+      <p class="modal-fine">Cancel anytime. After checkout you'll be returned here and Pro unlocks automatically.</p>
+    </div>
+  </div>
+
+  <script>
+    /* ============== CONFIG — replace these two ============== */
+    const STRIPE_PRO_LINK = "STRIPE_PRO_LINK";   // your Stripe Payment Link
+    const SUPPORT_EMAIL   = "SUPPORT_EMAIL";     // your support email
+    /* ======================================================== */
+
+    const state = { authenticated: false, email: null, pro: false };
+
+    // ---------- account / session ----------
+    async function api(path, opts){
+      opts = opts || {};
+      opts.credentials = "same-origin";
+      opts.headers = Object.assign({ "content-type": "application/json" }, opts.headers || {});
+      const r = await fetch(path, opts);
+      let data = {}; try { data = await r.json(); } catch(e){}
+      return { ok: r.ok, status: r.status, data };
+    }
+
+    async function loadMe(){
+      try {
+        const { data } = await api("/api/me");
+        state.authenticated = !!data.authenticated;
+        state.email = data.email || null;
+        state.pro = !!data.pro;
+      } catch(e){ /* offline / not deployed */ }
+      renderAccount();
+    }
+
+    function renderAccount(){
+      const area = document.getElementById("accountArea");
+      if (state.authenticated){
+        area.innerHTML =
+          `<span class="acct-email" title="${state.email}">${state.email}</span>`+
+          `<span class="plan-pill ${state.pro?'pro':''}">${state.pro?'Pro':'Free'}</span>`+
+          `<button class="linkbtn" id="logoutBtn">Log out</button>`;
+        document.getElementById("logoutBtn").addEventListener("click", async () => {
+          await api("/api/logout", { method:"POST" });
+          state.authenticated = false; state.email = null; state.pro = false;
+          renderAccount();
+        });
+      } else {
+        area.innerHTML = `<button class="btn-signin" id="signinBtn">Sign in</button>`;
+        document.getElementById("signinBtn").addEventListener("click", () => openSignin());
+      }
+      // keep the upgrade button tied to the signed-in email
+      const link = state.email
+        ? STRIPE_PRO_LINK + (STRIPE_PRO_LINK.includes("?") ? "&" : "?") + "prefilled_email=" + encodeURIComponent(state.email)
+        : STRIPE_PRO_LINK;
+      document.getElementById("upgradeBtn").href = link;
+    }
+
+    // ---------- sign-in modal ----------
+    function openSignin(note){
+      const intro = document.getElementById("signinIntro");
+      if (note) intro.textContent = note;
+      document.getElementById("signinStatus").textContent = "";
+      document.getElementById("signinModal").classList.add("active");
+      document.body.classList.add("modal-open");
+      setTimeout(() => document.getElementById("signinEmail").focus(), 50);
+    }
+    function closeSignin(){
+      document.getElementById("signinModal").classList.remove("active");
+      document.body.classList.remove("modal-open");
+    }
+    document.getElementById("signinModal").addEventListener("click", e => {
+      if (e.target.id === "signinModal") closeSignin();
+    });
+    document.getElementById("sendLinkBtn").addEventListener("click", async () => {
+      const email = document.getElementById("signinEmail").value.trim();
+      const status = document.getElementById("signinStatus");
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){
+        status.className = "modal-status err"; status.textContent = "Please enter a valid email."; return;
+      }
+      status.className = "modal-status"; status.textContent = "Sending…";
+      const { ok, data } = await api("/api/auth/request", { method:"POST", body: JSON.stringify({ email }) });
+      if (ok){ status.className = "modal-status ok"; status.textContent = "Check your inbox for your sign-in link."; }
+      else { status.className = "modal-status err"; status.textContent = data.error || "Couldn't send the link."; }
+    });
+
+    // ---------- trade rows ----------
+    const tradeList = document.getElementById("tradeList");
+    function newRow(data){
+      data = data || {};
+      const row = document.createElement("div");
+      row.className = "trade-row";
+      row.innerHTML = `
+        <input class="f-sym" placeholder="XRP" value="${data.symbol||''}" />
+        <select class="f-side">
+          <option ${data.side!=='Short'?'selected':''}>Long</option>
+          <option ${data.side==='Short'?'selected':''}>Short</option>
+        </select>
+        <input class="f-entry" type="number" step="any" placeholder="Entry" value="${data.entry??''}" />
+        <input class="f-exit" type="number" step="any" placeholder="Exit" value="${data.exit??''}" />
+        <input class="f-qty" type="number" step="any" placeholder="Qty" value="${data.qty??''}" />
+        <input class="f-date" type="date" value="${data.date||''}" />
+        <button class="row-remove" title="Remove">×</button>
+        <input class="f-notes" placeholder="Notes (optional)" value="${data.notes||''}" style="grid-column:1 / -2; margin-top:2px;" />
+        <div class="pl-cell pl-zero" style="grid-column:-2 / -1;">—</div>`;
+      tradeList.appendChild(row);
+      const recompute = () => updatePL(row);
+      row.querySelectorAll("input,select").forEach(el => el.addEventListener("input", recompute));
+      row.querySelector(".row-remove").addEventListener("click", () => { row.remove(); });
+      updatePL(row);
+    }
+    function rowPL(row){
+      const entry = parseFloat(row.querySelector(".f-entry").value);
+      const exit  = parseFloat(row.querySelector(".f-exit").value);
+      const qty   = parseFloat(row.querySelector(".f-qty").value);
+      const side  = row.querySelector(".f-side").value;
+      if (![entry,exit,qty].every(Number.isFinite)) return null;
+      return (exit - entry) * qty * (side === "Short" ? -1 : 1);
+    }
+    function updatePL(row){
+      const cell = row.querySelector(".pl-cell");
+      const pl = rowPL(row);
+      if (pl === null){ cell.textContent = "—"; cell.className = "pl-cell pl-zero"; return; }
+      cell.textContent = (pl>=0?"+":"") + pl.toFixed(2);
+      cell.className = "pl-cell " + (pl>0?"pl-pos":pl<0?"pl-neg":"pl-zero");
+    }
+    function collectTrades(){
+      const rows = [...tradeList.querySelectorAll(".trade-row")];
+      return rows.map(r => ({
+        symbol: r.querySelector(".f-sym").value.trim(),
+        side: r.querySelector(".f-side").value,
+        entry: r.querySelector(".f-entry").value,
+        exit: r.querySelector(".f-exit").value,
+        qty: r.querySelector(".f-qty").value,
+        date: r.querySelector(".f-date").value,
+        notes: r.querySelector(".f-notes").value.trim(),
+      })).filter(t => t.symbol || t.entry || t.exit);
+    }
+    document.getElementById("addTrade").addEventListener("click", () => newRow());
+
+    // ---------- stats ----------
+    function computeStats(){
+      let wins=0, losses=0, gProfit=0, gLoss=0, total=0, counted=0;
+      [...tradeList.querySelectorAll(".trade-row")].forEach(r => {
+        const pl = rowPL(r);
+        if (pl === null) return;
+        counted++; total += pl;
+        if (pl > 0){ wins++; gProfit += pl; }
+        else if (pl < 0){ losses++; gLoss += Math.abs(pl); }
+      });
+      const winRate = counted ? (wins/counted*100) : 0;
+      const pf = gLoss > 0 ? (gProfit/gLoss) : (gProfit>0 ? Infinity : 0);
+      return { counted, total, winRate, pf, avgWin: wins?gProfit/wins:0, avgLoss: losses?gLoss/losses:0 };
+    }
+    function renderStats(s){
+      const money = n => (n>=0?"+":"−") + "$" + Math.abs(n).toFixed(2);
+      const cls = n => n>0?"pl-pos":n<0?"pl-neg":"";
+      document.getElementById("statsGrid").innerHTML = `
+        <div class="stat"><div class="stat-val ${cls(s.total)}">${money(s.total)}</div><div class="stat-label">Net P/L</div></div>
+        <div class="stat"><div class="stat-val">${s.winRate.toFixed(0)}%</div><div class="stat-label">Win Rate</div></div>
+        <div class="stat"><div class="stat-val">${s.pf===Infinity?"∞":s.pf.toFixed(2)}</div><div class="stat-label">Profit Factor</div></div>
+        <div class="stat"><div class="stat-val pl-pos">$${s.avgWin.toFixed(2)}</div><div class="stat-label">Avg Win</div></div>
+        <div class="stat"><div class="stat-val pl-neg">$${s.avgLoss.toFixed(2)}</div><div class="stat-label">Avg Loss</div></div>
+        <div class="stat"><div class="stat-val">${s.counted}</div><div class="stat-label">Trades</div></div>`;
+    }
+
+    // ---------- markdown (safe) ----------
+    function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+    function renderMarkdown(md){
+      const lines = esc(md).split("\n");
+      let html = "", inList = false;
+      const inline = t => t.replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>").replace(/(^|[^*])\*(?!\*)(.+?)\*(?!\*)/g,"$1<em>$2</em>");
+      for (let raw of lines){
+        const line = raw.trim();
+        if (!line){ if(inList){html+="</ul>";inList=false;} continue; }
+        if (line.startsWith("## ")){ if(inList){html+="</ul>";inList=false;} html+=`<h2>${inline(line.slice(3))}</h2>`; }
+        else if (line.startsWith("# ")){ if(inList){html+="</ul>";inList=false;} html+=`<h2>${inline(line.slice(2))}</h2>`; }
+        else if (/^[-*]\s+/.test(line)){ if(!inList){html+="<ul>";inList=true;} html+=`<li>${inline(line.replace(/^[-*]\s+/,""))}</li>`; }
+        else { if(inList){html+="</ul>";inList=false;} html+=`<p>${inline(line)}</p>`; }
+      }
+      if (inList) html+="</ul>";
+      return html;
+    }
+
+    // ---------- analyze ----------
+    let lastAnalysis = "", lastStats = null;
+    const analyzeBtn = document.getElementById("analyzeBtn");
+    const analyzeLabel = document.getElementById("analyzeLabel");
+    const errorBox = document.getElementById("errorBox");
+    function showError(msg){ errorBox.textContent = msg; errorBox.classList.add("show"); }
+
+    async function analyze(){
+      errorBox.classList.remove("show");
+      const trades = collectTrades();
+      if (trades.length === 0){ showError("Add at least one trade (symbol, entry and exit) before analyzing."); return; }
+      if (!state.authenticated){ openSignin("Sign in to run your analysis — it takes 10 seconds and your Pro plan follows your email."); return; }
+
+      analyzeBtn.disabled = true;
+      analyzeLabel.innerHTML = '<span class="spinner"></span>';
+      try {
+        const { ok, status, data } = await api("/api/analyze", {
+          method:"POST", body: JSON.stringify({ trades, context: document.getElementById("contextBox").value })
+        });
+        if (status === 401){ openSignin("Please sign in to analyze your trades."); return; }
+        if (status === 402){ openPaywall(); return; }
+        if (!ok) throw new Error(data.error || "Analysis failed.");
+
+        lastAnalysis = data.analysis || "";
+        lastStats = computeStats();
+        renderStats(lastStats);
+        document.getElementById("analysisOut").innerHTML = renderMarkdown(lastAnalysis);
+        document.getElementById("resultPanel").classList.add("show");
+        document.getElementById("resultPanel").scrollIntoView({ behavior:"smooth", block:"start" });
+      } catch(err){
+        showError(err.message + " — if you just deployed, make sure ANTHROPIC_API_KEY and the storage keys are set in Vercel.");
+      } finally {
+        analyzeBtn.disabled = false;
+        analyzeLabel.textContent = "Analyze with AI";
+      }
+    }
+    analyzeBtn.addEventListener("click", analyze);
+
+    // ---------- paywall ----------
+    function openPaywall(){ document.getElementById("paywall").classList.add("active"); document.body.classList.add("modal-open"); }
+    function closePaywall(){ document.getElementById("paywall").classList.remove("active"); document.body.classList.remove("modal-open"); }
+    document.getElementById("paywall").addEventListener("click", e => { if (e.target.id === "paywall") closePaywall(); });
+
+    // ---------- PDF (Pro) ----------
+    document.getElementById("pdfBtn").addEventListener("click", () => {
+      if (!state.pro){ openPaywall(); return; }
+      if (!lastAnalysis){ showError("Run an analysis first."); return; }
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit:"pt", format:"letter" });
+      const M = 54; let y = 64; const W = 612 - M*2;
+      doc.setFont("helvetica","bold"); doc.setFontSize(20); doc.setTextColor(20,30,45);
+      doc.text("X3 Alpha — Trade Report", M, y); y += 18;
+      doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor(120,130,145);
+      doc.text(new Date().toLocaleString(), M, y); y += 24;
+      if (lastStats){
+        doc.setFontSize(11); doc.setTextColor(40,50,65); doc.setFont("helvetica","bold");
+        doc.text(
+          `Net P/L: ${(lastStats.total>=0?"+":"-")}$${Math.abs(lastStats.total).toFixed(2)}   |   `+
+          `Win Rate: ${lastStats.winRate.toFixed(0)}%   |   `+
+          `Profit Factor: ${lastStats.pf===Infinity?"∞":lastStats.pf.toFixed(2)}   |   `+
+          `Trades: ${lastStats.counted}`, M, y);
+        y += 22;
+      }
+      doc.setDrawColor(220,226,234); doc.line(M, y, M+W, y); y += 22;
+      doc.setFont("helvetica","normal"); doc.setFontSize(11); doc.setTextColor(35,42,55);
+      doc.splitTextToSize(lastAnalysis.replace(/[#*]/g,""), W).forEach(line => {
+        if (y > 740){ doc.addPage(); y = 64; }
+        doc.text(line, M, y); y += 16;
+      });
+      doc.save("x3-alpha-report.pdf");
+    });
+
+    // ---------- init ----------
+    document.getElementById("supportLink").href = "mailto:" + SUPPORT_EMAIL;
+    newRow(); newRow();
+    renderAccount();
+
+    (async function start(){
+      const params = new URLSearchParams(location.search);
+      const tok = params.get("token");
+      if (tok){
+        const { ok } = await api("/api/auth/verify", { method:"POST", body: JSON.stringify({ token: tok }) });
+        history.replaceState({}, "", location.pathname);
+        if (ok){ await loadMe(); }
+      } else {
+        await loadMe();
+      }
+      // returning from Stripe checkout: poll until the webhook flips us to Pro
+      if (params.get("checkout") === "success"){
+        history.replaceState({}, "", location.pathname);
+        for (let i=0; i<6 && !state.pro; i++){
+          await new Promise(r => setTimeout(r, 1500));
+          await loadMe();
+        }
+      }
+    })();
+
+  </script>
+</body>
+</html>
