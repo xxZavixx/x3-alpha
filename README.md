@@ -71,6 +71,12 @@ In `index.html`, CONFIG block near the bottom of the <script>:
 
 3. Domains → add `alpha.x3digitalcapital.com`, then add the CNAME it shows you at Northwest.
 
+Note: when adding values in Vercel or a local `.env` file, enter the raw value only — do not include a leading `=` or surrounding quotes. For example:
+
+```
+UPSTASH_REDIS_REST_URL=https://climbing-drake-40184.upstash.io
+```
+
 ## Cost
 
 ~$0.01 per analysis on Claude Haiku 4.5 (the default). Upstash/Resend free tiers
