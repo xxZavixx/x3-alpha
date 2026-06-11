@@ -28,9 +28,6 @@ For security reasons, Gmail does not allow you to use this type of file as it vi
 import crypto from "node:crypto";
 import { db, getUser, saveUser } from "./_lib.js";
 
-// We need Stripe's raw body to verify the signature, so disable body parsing.
-export const config = { api: { bodyParser: false } };
-
 function verifySignature(raw, sigHeader, secret) {
   if (!sigHeader) return false;
   const parts = {};
@@ -58,10 +55,21 @@ export default async function handler(req, res) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   let raw = "";
   try {
-    const chunks = [];
-    for await (const c of req) chunks.push(c);
-    raw = Buffer.concat(chunks).toString("utf8");
-  } catch { res.statusCode = 400; res.end("Bad body"); return; }
+    // Handle Vercel Functions: req.body may be pre-parsed or raw
+    if (typeof req.body === "string") {
+      raw = req.body;
+    } else if (Buffer.isBuffer(req.body)) {
+      raw = req.body.toString("utf8");
+    } else if (req.body && typeof req.body === "object") {
+      // If already parsed as JSON, re-stringify to verify signature
+      raw = JSON.stringify(req.body);
+    } else {
+      // Try to read from request stream
+      const chunks = [];
+      for await (const c of req) chunks.push(c);
+      raw = Buffer.concat(chunks).toString("utf8");
+    }
+  } catch (e) { res.statusCode = 400; res.end("Bad body"); return; }
 
   if (!secret || !verifySignature(raw, req.headers["stripe-signature"], secret)) {
     res.statusCode = 400; res.end("Invalid signature"); return;
