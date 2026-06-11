@@ -642,26 +642,67 @@
       if (!lastAnalysis){ showError("Run an analysis first."); return; }
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ unit:"pt", format:"letter" });
-      const M = 54; let y = 64; const W = 612 - M*2;
-      doc.setFont("helvetica","bold"); doc.setFontSize(20); doc.setTextColor(20,30,45);
-      doc.text("X3 Alpha — Trade Report", M, y); y += 18;
-      doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor(120,130,145);
-      doc.text(new Date().toLocaleString(), M, y); y += 24;
-      if (lastStats){
-        doc.setFontSize(11); doc.setTextColor(40,50,65); doc.setFont("helvetica","bold");
-        doc.text(
-          `Net P/L: ${(lastStats.total>=0?"+":"-")}$${Math.abs(lastStats.total).toFixed(2)}   |   `+
-          `Win Rate: ${lastStats.winRate.toFixed(0)}%   |   `+
-          `Profit Factor: ${lastStats.pf===Infinity?"∞":lastStats.pf.toFixed(2)}   |   `+
-          `Trades: ${lastStats.counted}`, M, y);
-        y += 22;
+      const margin = 48;
+      const pageWidth = 612;
+      const pageHeight = 792;
+      const maxWidth = pageWidth - margin * 2;
+      const lineHeight = 18;
+      let y = margin;
+
+      const addPageIfNeeded = (height = lineHeight) => {
+        if (y + height > pageHeight - margin) {
+          doc.addPage();
+          y = margin;
+          return true;
+        }
+        return false;
+      };
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(22);
+      doc.setTextColor(25, 35, 45);
+      doc.text("X3 Alpha — Trade Report", margin, y);
+      y += 28;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(120, 130, 145);
+      doc.text(`Generated ${new Date().toLocaleString()}`, margin, y);
+      y += 24;
+
+      if (lastStats) {
+        addPageIfNeeded(46);
+        doc.setFillColor(244, 247, 250);
+        doc.rect(margin - 8, y - 8, maxWidth + 16, 44, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(40, 50, 65);
+        doc.text(`Net P/L: ${(lastStats.total>=0?"+":"-")}$${Math.abs(lastStats.total).toFixed(2)}`, margin, y);
+        doc.text(`Win Rate: ${lastStats.winRate.toFixed(0)}%`, margin, y + 16);
+        doc.text(`Profit Factor: ${lastStats.pf===Infinity?"∞":lastStats.pf.toFixed(2)}`, margin + 220, y + 16);
+        doc.text(`Trades: ${lastStats.counted}`, margin + 360, y + 16);
+        y += 50;
       }
-      doc.setDrawColor(220,226,234); doc.line(M, y, M+W, y); y += 22;
-      doc.setFont("helvetica","normal"); doc.setFontSize(11); doc.setTextColor(35,42,55);
-      doc.splitTextToSize(lastAnalysis.replace(/[#*]/g,""), W).forEach(line => {
-        if (y > 740){ doc.addPage(); y = 64; }
-        doc.text(line, M, y); y += 16;
-      });
+
+      doc.setDrawColor(220, 226, 234);
+      doc.setLineWidth(0.5);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 24;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      doc.setTextColor(35, 45, 65);
+      const wrapped = doc.splitTextToSize(lastAnalysis.replace(/[#*]/g, ""), maxWidth);
+      for (const line of wrapped) {
+        if (addPageIfNeeded()) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(11);
+          doc.setTextColor(35, 45, 65);
+        }
+        doc.text(line, margin, y);
+        y += lineHeight;
+      }
+
       doc.save("x3-alpha-report.pdf");
     });
 
