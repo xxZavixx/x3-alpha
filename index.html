@@ -172,6 +172,11 @@
       color:#fca5a5; font-size:0.88rem; line-height:1.6; }
     .error-box.show { display:block; }
 
+    .status-box { display:none; margin-top:18px; padding:16px 18px; border-radius:10px;
+      border:1px solid rgba(52,211,153,0.35); background:rgba(52,211,153,0.08);
+      color:#22c55e; font-size:0.88rem; line-height:1.6; }
+    .status-box.show { display:block; }
+
     /* PAYWALL MODAL */
     .modal-overlay {
       position:fixed; inset:0; z-index:100; background:rgba(3,5,7,0.8); backdrop-filter:blur(6px);
@@ -291,6 +296,7 @@
         <span class="usage-note" id="usageNote"></span>
       </div>
       <div class="error-box" id="errorBox"></div>
+      <div class="status-box" id="statusBox"></div>
     </section>
 
     <!-- STATS + RESULT -->
@@ -587,10 +593,15 @@
     const analyzeBtn = document.getElementById("analyzeBtn");
     const analyzeLabel = document.getElementById("analyzeLabel");
     const errorBox = document.getElementById("errorBox");
+    const statusBox = document.getElementById("statusBox");
     function showError(msg){ errorBox.textContent = msg; errorBox.classList.add("show"); }
+    function clearError(){ errorBox.textContent = ""; errorBox.classList.remove("show"); }
+    function showStatus(msg){ statusBox.textContent = msg; statusBox.classList.add("show"); }
+    function clearStatus(){ statusBox.textContent = ""; statusBox.classList.remove("show"); }
 
     async function analyze(){
-      errorBox.classList.remove("show");
+      clearError();
+      clearStatus();
       const trades = collectTrades();
       if (trades.length === 0){ showError("Add at least one trade (symbol, entry and exit) before analyzing."); return; }
       if (!state.authenticated){ openSignin("Sign in to run your analysis — it takes 10 seconds and your Pro plan follows your email."); return; }
@@ -672,9 +683,16 @@
       // returning from Stripe checkout: poll until the webhook flips us to Pro
       if (params.get("checkout") === "success"){
         history.replaceState({}, "", location.pathname);
+        clearStatus();
+        showStatus("Waiting for Stripe to confirm your Pro status...");
         for (let i=0; i<6 && !state.pro; i++){
           await new Promise(r => setTimeout(r, 1500));
           await loadMe();
+        }
+        if (state.pro){
+          showStatus("Pro status activated! Refresh the page if you want to continue.");
+        } else {
+          showStatus("Still waiting for Stripe webhook confirmation. If your plan is active, refresh this page again in a moment.");
         }
       }
     })();
