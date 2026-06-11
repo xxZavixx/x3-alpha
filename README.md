@@ -69,7 +69,13 @@ In `index.html`, CONFIG block near the bottom of the <script>:
    | `APP_URL` | (optional) e.g. https://alpha.x3digitalcapital.com |
    | `FREE_DAILY_LIMIT` | (optional) free analyses/day, default 1 |
 
-3. Domains → add `alpha.x3digitalcapital.com`, then add the CNAME it shows you at Northwest.
+3. In Stripe Payment Link settings, make sure the success redirect is exactly:
+
+   `https://alpha.x3digitalcapital.com/?checkout=success`
+
+   This lets the page poll your webhook-updated Pro status after payment.
+
+4. Domains → add `alpha.x3digitalcapital.com`, then add the CNAME it shows you at Northwest.
 
 Note: when adding values in Vercel or a local `.env` file, enter the raw value only — do not include a leading `=` or surrounding quotes. For example:
 

@@ -100,9 +100,9 @@ export default async function handler(req, res) {
     res.setHeader("content-type", "application/json");
     res.end(JSON.stringify({ received: true }));
   } catch (e) {
-    // Acknowledge so Stripe doesn't retry forever; error is non-fatal here.
-    res.statusCode = 200;
+    console.error("Stripe webhook processing failed:", e);
+    res.statusCode = 500;
     res.setHeader("content-type", "application/json");
-    res.end(JSON.stringify({ received: true }));
+    res.end(JSON.stringify({ error: String(e).slice(0, 300) }));
   }
 }
