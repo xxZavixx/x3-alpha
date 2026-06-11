@@ -690,7 +690,8 @@
           await loadMe();
         }
         if (state.pro){
-          showStatus("Pro status activated! Refresh the page if you want to continue.");
+          showStatus("Pro status activated! Reloading the page now...");
+          setTimeout(() => location.reload(), 900);
         } else {
           showStatus("Still waiting for Stripe webhook confirmation. If your plan is active, refresh this page again in a moment.");
         }
