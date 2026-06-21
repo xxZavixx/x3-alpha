@@ -6,6 +6,7 @@
   <title>X3 Alpha — AI Trading Journal</title>
   <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=Orbitron:wght@400;500;700;900&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -639,71 +640,90 @@
     function closePaywall(){ document.getElementById("paywall").classList.remove("active"); document.body.classList.remove("modal-open"); }
     document.getElementById("paywall").addEventListener("click", e => { if (e.target.id === "paywall") closePaywall(); });
 
-    // ---------- PDF (Pro) ----------
+    // ---------- PDF (Pro) — polished export ----------
     document.getElementById("pdfBtn").addEventListener("click", () => {
       if (!state.pro){ openPaywall(); return; }
       if (!lastAnalysis){ showError("Run an analysis first."); return; }
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ unit:"pt", format:"letter" });
-      const margin = 48;
-      const pageWidth = 612;
-      const pageHeight = 792;
-      const maxWidth = pageWidth - margin * 2;
-      const lineHeight = 18;
-      let y = margin;
+      const margin = 40;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
 
-      const addPageIfNeeded = (height = lineHeight) => {
-        if (y + height > pageHeight - margin) {
-          doc.addPage();
-          y = margin;
-          return true;
-        }
-        return false;
-      };
+      // Header bar
+      doc.setFillColor(10, 25, 47);
+      doc.rect(0, 0, pageWidth, 56, 'F');
+      doc.setFont("helvetica", "bold"); doc.setFontSize(20); doc.setTextColor(255,255,255);
+      doc.text("X3 ALPHA", margin, 36);
+      doc.setFontSize(9); doc.setFont("helvetica","normal");
+      doc.text("AI Trading Journal — Confidential", pageWidth - margin, 36, { align: 'right' });
 
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(22);
-      doc.setTextColor(25, 35, 45);
-      doc.text("X3 Alpha — Trade Report", margin, y);
-      y += 28;
+      let y = 80;
 
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.setTextColor(120, 130, 145);
-      doc.text(`Generated ${new Date().toLocaleString()}`, margin, y);
-      y += 24;
+      // Generated timestamp
+      doc.setFontSize(10); doc.setTextColor(120,130,145);
+      doc.text(`Generated ${new Date().toLocaleString()}`, margin, y - 8);
 
+      // Stats summary box
       if (lastStats) {
-        addPageIfNeeded(46);
-        doc.setFillColor(244, 247, 250);
-        doc.rect(margin - 8, y - 8, maxWidth + 16, 44, "F");
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(11);
-        doc.setTextColor(40, 50, 65);
-        doc.text(`Net P/L: ${(lastStats.total>=0?"+":"-")}$${Math.abs(lastStats.total).toFixed(2)}`, margin, y);
-        doc.text(`Win Rate: ${lastStats.winRate.toFixed(0)}%`, margin, y + 16);
-        doc.text(`Profit Factor: ${lastStats.pf===Infinity?"∞":lastStats.pf.toFixed(2)}`, margin + 220, y + 16);
-        doc.text(`Trades: ${lastStats.counted}`, margin + 360, y + 16);
-        y += 50;
+        doc.setFillColor(248, 250, 252);
+        doc.rect(margin, y, pageWidth - margin*2, 72, 'F');
+        doc.setFontSize(12); doc.setTextColor(30,40,60);
+        doc.setFont("helvetica","bold");
+        doc.text(`Net P/L: ${(lastStats.total>=0?"+":"-")}$${Math.abs(lastStats.total).toFixed(2)}`, margin + 12, y + 22);
+        doc.setFont("helvetica","normal");
+        doc.text(`Win Rate: ${lastStats.winRate.toFixed(0)}%`, margin + 12, y + 40);
+        doc.text(`Profit Factor: ${lastStats.pf===Infinity?"∞":lastStats.pf.toFixed(2)}`, margin + 140, y + 40);
+        doc.text(`Avg Win: $${lastStats.avgWin.toFixed(2)}`, pageWidth/2 + 20, y + 22);
+        doc.text(`Avg Loss: $${lastStats.avgLoss.toFixed(2)}`, pageWidth/2 + 20, y + 40);
+        y += 96;
       }
 
-      doc.setDrawColor(220, 226, 234);
-      doc.setLineWidth(0.5);
-      doc.line(margin, y, pageWidth - margin, y);
-      y += 24;
+      // Trades table using AutoTable
+      const trades = collectTrades().map(t => {
+        const entry = parseFloat(t.entry); const exit = parseFloat(t.exit); const qty = parseFloat(t.qty);
+        const sideFactor = t.side === 'Short' ? -1 : 1;
+        const pl = (Number.isFinite(entry) && Number.isFinite(exit) && Number.isFinite(qty)) ? ((exit - entry) * qty * sideFactor) : null;
+        return [t.symbol || '-', t.side || '-', t.entry || '-', t.exit || '-', t.qty || '-', t.date || '-', pl===null?'-':(pl>=0?'+':'')+Math.abs(pl).toFixed(2)];
+      });
 
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(11);
-      doc.setTextColor(35, 45, 65);
-      const wrapped = doc.splitTextToSize(lastAnalysis.replace(/[#*]/g, ""), maxWidth);
+      doc.autoTable({
+        head: [['Symbol','Side','Entry','Exit','Qty','Date','P/L']],
+        body: trades,
+        startY: y,
+        theme: 'grid',
+        headStyles: { fillColor: [10,25,47], textColor: 255, halign: 'center' },
+        styles: { font: 'helvetica', fontSize: 10, cellPadding: 6 },
+        alternateRowStyles: { fillColor: [245,247,250] },
+        margin: { left: margin, right: margin }
+      });
+
+      let afterY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 20 : pageHeight - margin - 80;
+
+      // Analysis text
+      doc.setFontSize(11); doc.setTextColor(35,45,65); doc.setFont("helvetica","normal");
+      const wrapped = doc.splitTextToSize(lastAnalysis.replace(/[#*]/g, ''), pageWidth - margin*2);
       for (const line of wrapped) {
-        if (addPageIfNeeded()) {
-          doc.setFont("helvetica", "normal");
-          doc.setFontSize(11);
-          doc.setTextColor(35, 45, 65);
+        if (afterY + 14 > pageHeight - margin - 30) {
+          // add footer for current page
+          const pcount = doc.getNumberOfPages();
+          doc.setFontSize(9); doc.setTextColor(120,130,145);
+          doc.text(`X3 Digital Capital — Confidential`, margin, pageHeight - 28);
+          doc.text(`Page ${pcount}`, pageWidth - margin, pageHeight - 28, { align: 'right' });
+          doc.addPage();
+          afterY = margin + 20;
         }
-        doc.text(line, margin, y);
-        y += lineHeight;
+        doc.text(line, margin, afterY);
+        afterY += 14;
+      }
+
+      // Final footer / page numbers on all pages
+      const pageCount = doc.getNumberOfPages();
+      for (let i=1;i<=pageCount;i++){
+        doc.setPage(i);
+        doc.setFontSize(9); doc.setTextColor(120,130,145);
+        doc.text(`X3 Digital Capital — Confidential`, margin, pageHeight - 28);
+        doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin, pageHeight - 28, { align: 'right' });
       }
 
       doc.save("x3-alpha-report.pdf");
