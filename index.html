@@ -640,7 +640,7 @@
     function closePaywall(){ document.getElementById("paywall").classList.remove("active"); document.body.classList.remove("modal-open"); }
     document.getElementById("paywall").addEventListener("click", e => { if (e.target.id === "paywall") closePaywall(); });
 
-    // ---------- PDF (Pro) — polished export ----------
+    // ---------- PDF (Pro) — premium export ----------
     document.getElementById("pdfBtn").addEventListener("click", () => {
       if (!state.pro){ openPaywall(); return; }
       if (!lastAnalysis){ showError("Run an analysis first."); return; }
@@ -650,34 +650,99 @@
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
 
-      // Header bar
+      // Header bar + mark
       doc.setFillColor(10, 25, 47);
-      doc.rect(0, 0, pageWidth, 56, 'F');
-      doc.setFont("helvetica", "bold"); doc.setFontSize(20); doc.setTextColor(255,255,255);
-      doc.text("X3 ALPHA", margin, 36);
+      doc.rect(0, 0, pageWidth, 60, 'F');
+      doc.setFillColor(96, 165, 250);
+      doc.circle(margin + 12, 30, 10, 'F');
+      doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.setTextColor(255,255,255);
+      doc.text("X3 ALPHA", margin + 32, 36);
       doc.setFontSize(9); doc.setFont("helvetica","normal");
       doc.text("AI Trading Journal — Confidential", pageWidth - margin, 36, { align: 'right' });
+      doc.setDrawColor(72, 119, 187);
+      doc.setLineWidth(1.5);
+      doc.line(margin, 62, pageWidth - margin, 62);
 
-      let y = 80;
+      let y = 90;
 
       // Generated timestamp
-      doc.setFontSize(10); doc.setTextColor(120,130,145);
-      doc.text(`Generated ${new Date().toLocaleString()}`, margin, y - 8);
+      doc.setFontSize(10); doc.setTextColor(148, 163, 184);
+      doc.text(`Generated ${new Date().toLocaleString()}`, margin, y - 4);
 
       // Stats summary box
       if (lastStats) {
-        doc.setFillColor(248, 250, 252);
-        doc.rect(margin, y, pageWidth - margin*2, 72, 'F');
-        doc.setFontSize(12); doc.setTextColor(30,40,60);
+        doc.setFillColor(246, 248, 252);
+        doc.rect(margin, y, pageWidth - margin*2, 80, 'F');
+        doc.setFontSize(11); doc.setTextColor(30,40,60);
         doc.setFont("helvetica","bold");
-        doc.text(`Net P/L: ${(lastStats.total>=0?"+":"-")}$${Math.abs(lastStats.total).toFixed(2)}`, margin + 12, y + 22);
+        doc.text(`Net P/L: ${(lastStats.total>=0?"+":"-")}$${Math.abs(lastStats.total).toFixed(2)}`, margin + 14, y + 24);
         doc.setFont("helvetica","normal");
-        doc.text(`Win Rate: ${lastStats.winRate.toFixed(0)}%`, margin + 12, y + 40);
-        doc.text(`Profit Factor: ${lastStats.pf===Infinity?"∞":lastStats.pf.toFixed(2)}`, margin + 140, y + 40);
-        doc.text(`Avg Win: $${lastStats.avgWin.toFixed(2)}`, pageWidth/2 + 20, y + 22);
-        doc.text(`Avg Loss: $${lastStats.avgLoss.toFixed(2)}`, pageWidth/2 + 20, y + 40);
-        y += 96;
+        doc.text(`Win Rate: ${lastStats.winRate.toFixed(0)}%`, margin + 14, y + 42);
+        doc.text(`Profit Factor: ${lastStats.pf===Infinity?"∞":lastStats.pf.toFixed(2)}`, margin + 14, y + 60);
+        doc.text(`Avg Win: $${lastStats.avgWin.toFixed(2)}`, pageWidth/2 + 10, y + 24);
+        doc.text(`Avg Loss: $${lastStats.avgLoss.toFixed(2)}`, pageWidth/2 + 10, y + 42);
+        doc.text(`Trades: ${lastStats.counted}`, pageWidth/2 + 10, y + 60);
+        y += 108;
       }
+
+      // Trend chart
+      const chartHeight = 115;
+      const chartWidth = pageWidth - margin*2;
+      const chartTop = y;
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(226, 232, 240);
+      doc.rect(margin, chartTop, chartWidth, chartHeight, 'F');
+      doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(30,40,60);
+      doc.text("Performance Trend", margin + 12, chartTop + 18);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(148,163,184);
+      doc.text("Cumulative P/L across entered trades", margin + 12, chartTop + 32);
+
+      const tradeValues = collectTrades().map(t => {
+        const entry = parseFloat(t.entry); const exit = parseFloat(t.exit); const qty = parseFloat(t.qty);
+        const sideFactor = t.side === 'Short' ? -1 : 1;
+        return (Number.isFinite(entry) && Number.isFinite(exit) && Number.isFinite(qty)) ? ((exit - entry) * qty * sideFactor) : 0;
+      });
+      let cumulative = [];
+      let running = 0;
+      tradeValues.forEach(val => { running += val; cumulative.push(running); });
+      const values = cumulative.length ? cumulative : [0];
+      const minValue = Math.min(0, ...values);
+      const maxValue = Math.max(0, ...values);
+      const range = maxValue - minValue || 1;
+      const plotLeft = margin + 48;
+      const plotRight = margin + chartWidth - 20;
+      const plotTop = chartTop + 42;
+      const plotBottom = chartTop + chartHeight - 24;
+      const plotWidth = plotRight - plotLeft;
+      const plotHeight = plotBottom - plotTop;
+      const pointCount = values.length;
+
+      // Axes
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.8);
+      doc.line(plotLeft, plotTop, plotLeft, plotBottom);
+      doc.line(plotLeft, plotBottom, plotRight, plotBottom);
+      doc.setFontSize(8); doc.setTextColor(148,163,184);
+      doc.text(`${maxValue>=0?'+':''}${maxValue.toFixed(2)}`, plotLeft - 4, plotTop + 4, { align: 'right' });
+      doc.text(`${minValue.toFixed(2)}`, plotLeft - 4, plotBottom + 4, { align: 'right' });
+
+      if (pointCount > 1) {
+        let prev = null;
+        values.forEach((val, index) => {
+          const x = plotLeft + (plotWidth * (index / (pointCount - 1)));
+          const yPoint = plotBottom - ((val - minValue) / range) * plotHeight;
+          if (prev) {
+            doc.setDrawColor(59,130,246);
+            doc.setLineWidth(2);
+            doc.line(prev.x, prev.y, x, yPoint);
+          }
+          doc.setFillColor(59,130,246);
+          doc.circle(x, yPoint, 2.5, 'F');
+          prev = { x, y: yPoint };
+        });
+      }
+
+      y += chartHeight + 18;
 
       // Trades table using AutoTable
       const trades = collectTrades().map(t => {
@@ -686,15 +751,14 @@
         const pl = (Number.isFinite(entry) && Number.isFinite(exit) && Number.isFinite(qty)) ? ((exit - entry) * qty * sideFactor) : null;
         return [t.symbol || '-', t.side || '-', t.entry || '-', t.exit || '-', t.qty || '-', t.date || '-', pl===null?'-':(pl>=0?'+':'')+Math.abs(pl).toFixed(2)];
       });
-
       doc.autoTable({
         head: [['Symbol','Side','Entry','Exit','Qty','Date','P/L']],
         body: trades,
         startY: y,
         theme: 'grid',
-        headStyles: { fillColor: [10,25,47], textColor: 255, halign: 'center' },
+        headStyles: { fillColor: [15, 23, 42], textColor: 255, halign: 'center' },
         styles: { font: 'helvetica', fontSize: 10, cellPadding: 6 },
-        alternateRowStyles: { fillColor: [245,247,250] },
+        alternateRowStyles: { fillColor: [248,250,252] },
         margin: { left: margin, right: margin }
       });
 
@@ -705,9 +769,8 @@
       const wrapped = doc.splitTextToSize(lastAnalysis.replace(/[#*]/g, ''), pageWidth - margin*2);
       for (const line of wrapped) {
         if (afterY + 14 > pageHeight - margin - 30) {
-          // add footer for current page
           const pcount = doc.getNumberOfPages();
-          doc.setFontSize(9); doc.setTextColor(120,130,145);
+          doc.setFontSize(9); doc.setTextColor(148,163,184);
           doc.text(`X3 Digital Capital — Confidential`, margin, pageHeight - 28);
           doc.text(`Page ${pcount}`, pageWidth - margin, pageHeight - 28, { align: 'right' });
           doc.addPage();
@@ -717,11 +780,10 @@
         afterY += 14;
       }
 
-      // Final footer / page numbers on all pages
       const pageCount = doc.getNumberOfPages();
-      for (let i=1;i<=pageCount;i++){
+      for (let i=1; i<=pageCount; i++) {
         doc.setPage(i);
-        doc.setFontSize(9); doc.setTextColor(120,130,145);
+        doc.setFontSize(9); doc.setTextColor(148,163,184);
         doc.text(`X3 Digital Capital — Confidential`, margin, pageHeight - 28);
         doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin, pageHeight - 28, { align: 'right' });
       }
