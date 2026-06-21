@@ -762,31 +762,31 @@
         margin: { left: margin, right: margin }
       });
 
-      let afterY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 20 : pageHeight - margin - 80;
+      let afterY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 24 : pageHeight - margin - 90;
 
       // Analysis text
-      const bodyFont = "times";
+      const bodyFont = "helvetica";
       const headingFont = "helvetica";
-      const textLineHeight = 16;
-      const footerTop = pageHeight - margin - 30;
+      const textLineHeight = 18;
+      const footerTop = pageHeight - margin - 40;
       doc.setFont(bodyFont, "normal");
       doc.setFontSize(11);
-      doc.setTextColor(28,30,33);
-      doc.setLineHeightFactor(1.35);
+      doc.setTextColor(20,20,20);
+      doc.setLineHeightFactor(1.5);
       const wrapped = doc.splitTextToSize(lastAnalysis.replace(/[#*]/g, ''), pageWidth - margin*2);
       for (const line of wrapped) {
         if (afterY + textLineHeight > footerTop) {
           const pcount = doc.getNumberOfPages();
           doc.setFont(headingFont, "normal");
           doc.setFontSize(9);
-          doc.setTextColor(110,118,130);
+          doc.setTextColor(96, 110, 124);
           doc.text(`X3 Digital Capital — Confidential`, margin, pageHeight - 28);
           doc.text(`Page ${pcount}`, pageWidth - margin, pageHeight - 28, { align: 'right' });
           doc.addPage();
-          afterY = margin + 20;
+          afterY = margin + 22;
           doc.setFont(bodyFont, "normal");
           doc.setFontSize(11);
-          doc.setTextColor(28,30,33);
+          doc.setTextColor(20,20,20);
         }
         doc.text(line, margin, afterY);
         afterY += textLineHeight;
@@ -797,7 +797,7 @@
         doc.setPage(i);
         doc.setFont(headingFont, "normal");
         doc.setFontSize(9);
-        doc.setTextColor(110,118,130);
+        doc.setTextColor(96, 110, 124);
         doc.text(`X3 Digital Capital — Confidential`, margin, pageHeight - 28);
         doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin, pageHeight - 28, { align: 'right' });
       }
