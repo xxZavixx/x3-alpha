@@ -165,6 +165,12 @@
     .result em { color:var(--text-muted); font-style:italic; font-size:0.82rem; }
     .result strong { color:var(--white); }
 
+    .feature-list { margin:16px 0 0 18px; color:var(--silver-light); line-height:1.75; }
+    .feature-list li { margin-bottom:14px; position:relative; padding-left:18px; list-style:none; }
+    .feature-list li::before { content:'•'; position:absolute; left:0; top:0; color:var(--blue-bright); font-size:1.1rem; line-height:1; }
+    .verification-link { display:inline-flex; align-items:center; justify-content:center; margin-top:18px; }
+    .verification-link img { border-radius:16px; box-shadow:0 20px 40px rgba(0,0,0,0.25); }
+
     .spinner { width:18px; height:18px; border:2px solid rgba(255,255,255,0.3);
       border-top-color:#fff; border-radius:50%; animation:spin 0.7s linear infinite; }
     @keyframes spin { to { transform:rotate(360deg); } }
@@ -312,6 +318,32 @@
 
       <div class="analyze-bar">
         <button class="btn-ghost" id="pdfBtn">⬇ Download PDF</button>
+      </div>
+    </section>
+
+    <section class="panel" id="verification">
+      <div class="panel-title">Benefits of Getting Verified</div>
+      <div class="panel-sub">Verification helps your page perform better and eliminates manual edits.</div>
+      <ul class="feature-list">
+        <li>Track stats such as opens, clicks, saves and search impressions.</li>
+        <li>Get $200 in PPC credits upon verification.</li>
+        <li>Removes the need for manual edits by our team, which cost $49 each.</li>
+        <li>Verified AIs get 6 times more clicks on average compared to non-verified AIs.</li>
+      </ul>
+      <div style="margin-top:22px;">
+        <div class="panel-title" style="font-size:0.95rem; margin-bottom:10px;">Verification Steps</div>
+        <div class="faq-body">
+          <ol style="margin-left:18px; list-style:decimal; color:var(--silver-light);">
+            <li>Place the embed code below on this page: <a href="https://alpha.x3digitalcapital.com/" target="_blank" rel="noreferrer" style="color:var(--blue-bright);">https://alpha.x3digitalcapital.com/</a></li>
+            <li>Make sure the code is only present on that single page. For example, if your website's pages have a common header or footer, placing it there might confuse our crawler and verify the wrong page.</li>
+            <li>Click the button below to verify.</li>
+          </ol>
+        </div>
+        <div class="verification-link">
+          <a href="https://theresanaiforthat.com/ai/x3-alpha/?ref=featured&v=11374453" target="_blank" rel="nofollow noopener noreferrer">
+            <img width="300" src="https://media.theresanaiforthat.com/featured-on-taaft.png?width=600" alt="Featured on There’s an AI for That" />
+          </a>
+        </div>
       </div>
     </section>
 
