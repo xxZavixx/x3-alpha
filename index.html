@@ -765,25 +765,39 @@
       let afterY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 20 : pageHeight - margin - 80;
 
       // Analysis text
-      doc.setFontSize(11); doc.setTextColor(35,45,65); doc.setFont("helvetica","normal");
+      const bodyFont = "times";
+      const headingFont = "helvetica";
+      const textLineHeight = 16;
+      const footerTop = pageHeight - margin - 30;
+      doc.setFont(bodyFont, "normal");
+      doc.setFontSize(11);
+      doc.setTextColor(28,30,33);
+      doc.setLineHeightFactor(1.35);
       const wrapped = doc.splitTextToSize(lastAnalysis.replace(/[#*]/g, ''), pageWidth - margin*2);
       for (const line of wrapped) {
-        if (afterY + 14 > pageHeight - margin - 30) {
+        if (afterY + textLineHeight > footerTop) {
           const pcount = doc.getNumberOfPages();
-          doc.setFontSize(9); doc.setTextColor(148,163,184);
+          doc.setFont(headingFont, "normal");
+          doc.setFontSize(9);
+          doc.setTextColor(110,118,130);
           doc.text(`X3 Digital Capital — Confidential`, margin, pageHeight - 28);
           doc.text(`Page ${pcount}`, pageWidth - margin, pageHeight - 28, { align: 'right' });
           doc.addPage();
           afterY = margin + 20;
+          doc.setFont(bodyFont, "normal");
+          doc.setFontSize(11);
+          doc.setTextColor(28,30,33);
         }
         doc.text(line, margin, afterY);
-        afterY += 14;
+        afterY += textLineHeight;
       }
 
       const pageCount = doc.getNumberOfPages();
       for (let i=1; i<=pageCount; i++) {
         doc.setPage(i);
-        doc.setFontSize(9); doc.setTextColor(148,163,184);
+        doc.setFont(headingFont, "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(110,118,130);
         doc.text(`X3 Digital Capital — Confidential`, margin, pageHeight - 28);
         doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin, pageHeight - 28, { align: 'right' });
       }
