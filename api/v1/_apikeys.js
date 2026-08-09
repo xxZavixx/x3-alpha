@@ -69,6 +69,20 @@ export async function checkRateLimit(key, perMinute = 20) {
   return { allowed: count <= perMinute, count, limit: perMinute };
 }
 
+// ---- Monthly quota: 500 calls/month per key (plan 'unlimited' bypasses) ----
+
+export const MONTHLY_QUOTA = 500;
+
+export async function checkMonthlyQuota(record) {
+  if (record.plan === "unlimited") return { allowed: true, used: 0, limit: null };
+  const { monthlyCalls } = await getUsage(record.key);
+  return {
+    allowed: monthlyCalls < MONTHLY_QUOTA,
+    used: monthlyCalls,
+    limit: MONTHLY_QUOTA,
+  };
+}
+
 // ---- Auth helper ----
 // Accepts  Authorization: Bearer <key>  or  X-API-Key: <key>
 
@@ -93,6 +107,11 @@ export async function authenticate(req) {
   if (!rate.allowed) {
     return { ok: false, status: 429, error: "rate_limited",
       message: `Rate limit exceeded (${rate.limit}/min). Slow down and retry.` };
+  }
+  const quota = await checkMonthlyQuota(record);
+  if (!quota.allowed) {
+    return { ok: false, status: 429, error: "monthly_quota_exceeded",
+      message: `Monthly quota reached (${quota.used}/${quota.limit} calls). Quota resets at the start of next month (UTC). Contact api@x3digitalcapital.com to upgrade.` };
   }
   return { ok: true, record };
 }

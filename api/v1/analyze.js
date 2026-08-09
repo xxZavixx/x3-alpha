@@ -9,7 +9,7 @@
 // machine consumption. Does not touch sessions, users, or the web app.
 
 import { json } from "../_lib.js";
-import { authenticate, recordUsage } from "./_apikeys.js";
+import { authenticate, recordUsage, MONTHLY_QUOTA } from "./_apikeys.js";
 
 const MAX_TRADES = 100;
 const MODEL = "claude-haiku-4-5-20251001";
@@ -123,7 +123,7 @@ Scoring guidance: be honest and calibrated, not generous. With <10 trades, overa
       generatedAt: new Date().toISOString(),
       metrics,
       analysis,
-      usage: { month: usage.month, callsThisMonth: usage.monthlyCalls },
+      usage: { month: usage.month, callsThisMonth: usage.monthlyCalls, monthlyLimit: auth.record.plan === "unlimited" ? null : MONTHLY_QUOTA },
       disclaimer: "X3 Alpha analyzes past trades for patterns. Not financial advice.",
     });
   } catch (e) {
