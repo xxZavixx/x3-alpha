@@ -1,9 +1,16 @@
-// POST /api/analyze  -> requires a signed-in user. Pro = unlimited.
-// Free users get FREE_DAILY_LIMIT analyses per day, enforced server-side.
+// POST /api/analyze  -> requires a signed-in user. Pro = 100/month. Free = 30/month.
+// Both tiers have monthly quotas enforced server-side.
 import { json, sessionEmail, getUser, db } from "./_lib.js";
 
 const MODEL = "claude-haiku-4-5-20251001"; // or "claude-sonnet-4-6" for deeper analysis
 const FREE_DAILY_LIMIT = Number(process.env.FREE_DAILY_LIMIT || 1);
+const FREE_MONTHLY_LIMIT = 30;
+const PRO_MONTHLY_LIMIT = 100;
+
+function monthStamp() {
+  const d = new Date();
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return json(res, 405, { error: "Method not allowed" });
@@ -14,11 +21,37 @@ export default async function handler(req, res) {
     const user = await getUser(email);
     const pro = !!(user && user.pro);
 
+    // Monthly quota check (applies to both free and pro)
+    const month = monthStamp();
+    const monthlyKey = `analysisusage:${email}:${month}`;
+    const monthlyUsed = await db.incrWithTtl(monthlyKey, 60 * 60 * 24 * 60); // 60-day TTL for billing review
+    const monthlyLimit = pro ? PRO_MONTHLY_LIMIT : FREE_MONTHLY_LIMIT;
+    
+    if (monthlyUsed > monthlyLimit) {
+      const remaining = Math.max(0, monthlyLimit - (monthlyUsed - 1)); // -1 because we already incremented
+      return json(res, 402, {
+        error: "Monthly quota exceeded",
+        message: `You've used all ${monthlyLimit} analyses for this month. Your quota resets on the 1st (UTC).`,
+        tier: pro ? "Pro" : "Free",
+        used: monthlyUsed - 1,
+        limit: monthlyLimit,
+        remaining: remaining
+      });
+    }
+
+    // Daily quota check (free users only)
     if (!pro) {
       const day = new Date().toISOString().slice(0, 10);
-      const used = await db.incrWithTtl(`usage:${email}:${day}`, 60 * 60 * 26);
-      if (used > FREE_DAILY_LIMIT) {
-        return json(res, 402, { error: "You've used your free analysis for today. Upgrade to Pro for unlimited." });
+      const dailyKey = `usage:${email}:${day}`;
+      const dailyUsed = await db.incrWithTtl(dailyKey, 60 * 60 * 26);
+      if (dailyUsed > FREE_DAILY_LIMIT) {
+        return json(res, 402, {
+          error: "Daily quota exceeded",
+          message: "You've used your free analysis for today. Upgrade to Pro for 100 analyses per month.",
+          tier: "Free",
+          dailyUsed,
+          dailyLimit: FREE_DAILY_LIMIT
+        });
       }
     }
 
@@ -72,7 +105,19 @@ export default async function handler(req, res) {
 
     const data = await apiRes.json();
     const analysis = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n").trim();
-    return json(res, 200, { analysis, pro });
+    
+    // Return quota info in response
+    const remaining = monthlyLimit - monthlyUsed;
+    return json(res, 200, {
+      analysis,
+      pro,
+      quota: {
+        tier: pro ? "Pro" : "Free",
+        used: monthlyUsed,
+        limit: monthlyLimit,
+        remaining: Math.max(0, remaining)
+      }
+    });
   } catch (e) {
     return json(res, 500, { error: String(e).slice(0, 300) });
   }
