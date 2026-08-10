@@ -21,38 +21,61 @@ export default async function handler(req, res) {
     const user = await getUser(email);
     const pro = !!(user && user.pro);
 
-    // Monthly quota check (applies to both free and pro)
+    // Daily quota check FIRST (for free users) — check without incrementing yet
+    if (!pro) {
+      const day = new Date().toISOString().slice(0, 10);
+      const dailyKey = `usage:${email}:${day}`;
+      // Peek at the current value without incrementing
+      const dailyCurrent = await db.get(dailyKey);
+      const dailyUsedSoFar = dailyCurrent ? parseInt(dailyCurrent) : 0;
+      
+      if (dailyUsedSoFar >= FREE_DAILY_LIMIT) {
+        const month = monthStamp();
+        const monthlyKey = `analysisusage:${email}:${month}`;
+        const monthlyUsed = await db.get(monthlyKey);
+        const monthlyCount = monthlyUsed ? parseInt(monthlyUsed) : 0;
+        const monthlyLimit = FREE_MONTHLY_LIMIT;
+        
+        return json(res, 402, {
+          error: "Daily quota exceeded",
+          message: "You've used your free analysis for today. Upgrade to Pro for 100 analyses per month.",
+          quota: {
+            tier: "Free",
+            used: monthlyCount,
+            limit: monthlyLimit,
+            remaining: Math.max(0, monthlyLimit - monthlyCount),
+            resetTime: "next UTC day"
+          }
+        });
+      }
+    }
+
+    // Monthly quota check (now safe to increment)
     const month = monthStamp();
     const monthlyKey = `analysisusage:${email}:${month}`;
     const monthlyUsed = await db.incrWithTtl(monthlyKey, 60 * 60 * 24 * 60); // 60-day TTL for billing review
     const monthlyLimit = pro ? PRO_MONTHLY_LIMIT : FREE_MONTHLY_LIMIT;
     
     if (monthlyUsed > monthlyLimit) {
-      const remaining = Math.max(0, monthlyLimit - (monthlyUsed - 1)); // -1 because we already incremented
+      const remaining = Math.max(0, monthlyLimit - (monthlyUsed - 1));
       return json(res, 402, {
         error: "Monthly quota exceeded",
         message: `You've used all ${monthlyLimit} analyses for this month. Your quota resets on the 1st (UTC).`,
-        tier: pro ? "Pro" : "Free",
-        used: monthlyUsed - 1,
-        limit: monthlyLimit,
-        remaining: remaining
+        quota: {
+          tier: pro ? "Pro" : "Free",
+          used: monthlyUsed - 1,
+          limit: monthlyLimit,
+          remaining: remaining,
+          resetTime: "1st of next month (UTC)"
+        }
       });
     }
 
-    // Daily quota check (free users only)
+    // Now increment daily counter since both checks passed
     if (!pro) {
       const day = new Date().toISOString().slice(0, 10);
       const dailyKey = `usage:${email}:${day}`;
-      const dailyUsed = await db.incrWithTtl(dailyKey, 60 * 60 * 26);
-      if (dailyUsed > FREE_DAILY_LIMIT) {
-        return json(res, 402, {
-          error: "Daily quota exceeded",
-          message: "You've used your free analysis for today. Upgrade to Pro for 100 analyses per month.",
-          tier: "Free",
-          dailyUsed,
-          dailyLimit: FREE_DAILY_LIMIT
-        });
-      }
+      await db.incrWithTtl(dailyKey, 60 * 60 * 26);
     }
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -115,7 +138,8 @@ export default async function handler(req, res) {
         tier: pro ? "Pro" : "Free",
         used: monthlyUsed,
         limit: monthlyLimit,
-        remaining: Math.max(0, remaining)
+        remaining: Math.max(0, remaining),
+        resetTime: "1st of next month (UTC)"
       }
     });
   } catch (e) {
